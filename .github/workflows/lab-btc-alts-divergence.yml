@@ -1,11 +1,20 @@
 name: LAB BTC vs Alts Divergence
 
 on:
+  push:
+    branches: [ lab-btc-alts-recovery-20260801 ]
+    paths:
+      - 'lab_btc_alts/run_btc_alts_v2.py'
+      - 'lab_btc_alts/README.md'
+      - '.github/workflows/lab-btc-alts-divergence.yml'
   pull_request:
     branches: [ pinescript ]
     paths:
       - 'lab_btc_alts/**'
       - '.github/workflows/lab-btc-alts-divergence.yml'
+
+permissions:
+  contents: write
 
 jobs:
   research:
@@ -13,6 +22,8 @@ jobs:
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: lab-btc-alts-recovery-20260801
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
@@ -20,6 +31,13 @@ jobs:
         run: pip install pandas numpy tabulate
       - name: Run corrected full research V2
         run: python lab_btc_alts/run_btc_alts_v2.py
+      - name: Persist small audited outputs to research branch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add lab_btc_alts/output_v2/manifest.csv lab_btc_alts/output_v2/PAIRWISE_ALL.csv lab_btc_alts/output_v2/BREADTH_ALL.csv lab_btc_alts/output_v2/ERA_ALL.csv lab_btc_alts/output_v2/REPORT.md
+          git commit -m "LAB results: BTC vs alts divergence V2" || exit 0
+          git push origin HEAD:lab-btc-alts-recovery-20260801
       - name: Package output
         run: |
           cd lab_btc_alts
