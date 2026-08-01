@@ -6,6 +6,11 @@ on:
     paths:
       - 'lab_btc_alts/**'
       - '.github/workflows/lab-btc-alts-divergence.yml'
+  pull_request:
+    branches: [ pinescript ]
+    paths:
+      - 'lab_btc_alts/**'
+      - '.github/workflows/lab-btc-alts-divergence.yml'
   workflow_dispatch:
 
 jobs:
