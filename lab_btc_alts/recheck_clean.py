@@ -1,7 +1,7 @@
-import json
-import time
-import urllib.parse
+import io
+import zipfile
 import urllib.request
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
 import numpy as np
@@ -9,8 +9,6 @@ import pandas as pd
 
 OUT = Path('lab_btc_alts/recheck_clean_output')
 OUT.mkdir(parents=True, exist_ok=True)
-END = pd.Timestamp('2026-07-11T00:00:00Z')
-END_MS = int(END.timestamp() * 1000)
 
 STARTS = {
     'BTCUSDT': '2017-08-17',
@@ -22,10 +20,7 @@ STARTS = {
     'SOLUSDT': '2020-08-11',
 }
 ALTS = ['ETHUSDT', 'SOLUSDT', 'ADAUSDT', 'XRPUSDT', 'DOGEUSDT', 'LTCUSDT']
-CONFIG = {
-    '4h': {'pair_start': '2018-04-17', 'breadth_start': '2020-08-11', 'h': [1, 3, 6, 12]},
-    '1d': {'pair_start': '2018-04-17', 'breadth_start': '2020-08-11', 'h': [1, 3, 5, 10]},
-}
+HORIZONS = {'4h': [1, 3, 6, 12], '1d': [1, 3, 5, 10]}
 
 
 def utc_ts(x):
@@ -33,53 +28,81 @@ def utc_ts(x):
     return t.tz_localize('UTC') if t.tzinfo is None else t.tz_convert('UTC')
 
 
-def fetch_klines(symbol, interval, start_date):
-    start_ms = int(utc_ts(start_date).timestamp() * 1000)
-    rows = []
-    cursor = start_ms
-    requests = 0
-    while cursor < END_MS:
-        params = urllib.parse.urlencode({
-            'symbol': symbol,
-            'interval': interval,
-            'startTime': cursor,
-            'endTime': END_MS - 1,
-            'limit': 1000,
-        })
-        url = 'https://api.binance.com/api/v3/klines?' + params
-        data = None
-        for attempt in range(7):
-            try:
-                with urllib.request.urlopen(url, timeout=30) as r:
-                    data = json.loads(r.read().decode('utf-8'))
-                break
-            except Exception:
-                if attempt == 6:
-                    raise
-                time.sleep(1.0 + attempt * 1.5)
-        requests += 1
-        if not data:
-            break
-        rows.extend(data)
-        nxt = int(data[-1][0]) + 1
-        if nxt <= cursor:
-            break
-        cursor = nxt
-        if len(data) < 1000:
-            break
-        time.sleep(0.04)
+def months_from(start_date, end_ym='2026-06'):
+    s = utc_ts(start_date)
+    y, m = s.year, s.month
+    ey, em = map(int, end_ym.split('-'))
+    out = []
+    while (y, m) <= (ey, em):
+        out.append(f'{y:04d}-{m:02d}')
+        m += 1
+        if m == 13:
+            y += 1
+            m = 1
+    return out
 
+
+def parse_zip_bytes(blob):
     cols = ['t','open','high','low','close','volume','ct','quote','trades','tb','tq','ignore']
-    d = pd.DataFrame(rows, columns=cols)
-    if d.empty:
-        raise RuntimeError(f'No data for {symbol} {interval}')
-    d = d.drop_duplicates('t').sort_values('t')
-    d.index = pd.to_datetime(d['t'].astype('int64'), unit='ms', utc=True)
-    for c in ['open','high','low','close','volume']:
-        d[c] = pd.to_numeric(d[c], errors='coerce')
-    d = d[['open','high','low','close','volume']].dropna()
-    print(interval, symbol, 'rows=', len(d), 'requests=', requests, 'from=', d.index.min(), 'to=', d.index.max(), flush=True)
-    return d
+    with zipfile.ZipFile(io.BytesIO(blob)) as z:
+        raw = z.read(z.namelist()[0])
+    q = pd.read_csv(io.BytesIO(raw), header=None, names=cols)
+    t = pd.to_numeric(q['t'], errors='coerce')
+    unit = 'us' if t.dropna().median() > 1e14 else 'ms'
+    idx = pd.to_datetime(t, unit=unit, utc=True, errors='coerce')
+    d = pd.DataFrame({
+        'open': pd.to_numeric(q['open'], errors='coerce').to_numpy(),
+        'high': pd.to_numeric(q['high'], errors='coerce').to_numpy(),
+        'low': pd.to_numeric(q['low'], errors='coerce').to_numpy(),
+        'close': pd.to_numeric(q['close'], errors='coerce').to_numpy(),
+        'volume': pd.to_numeric(q['volume'], errors='coerce').to_numpy(),
+    }, index=idx)
+    return d[~d.index.isna()].dropna()
+
+
+def download_one(url):
+    try:
+        req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
+        with urllib.request.urlopen(req, timeout=45) as r:
+            return parse_zip_bytes(r.read()), None
+    except Exception as e:
+        return None, f'{type(e).__name__}: {e}'
+
+
+def load_4h(symbol):
+    start = STARTS[symbol]
+    urls = []
+    for ym in months_from(start):
+        urls.append((ym, f'https://data.binance.vision/data/spot/monthly/klines/{symbol}/4h/{symbol}-4h-{ym}.zip'))
+    # July 2026 is not yet in the monthly archive; add the ten daily archives.
+    for day in range(1, 11):
+        ds = f'2026-07-{day:02d}'
+        urls.append((ds, f'https://data.binance.vision/data/spot/daily/klines/{symbol}/4h/{symbol}-4h-{ds}.zip'))
+
+    parts = []
+    misses = []
+    with ThreadPoolExecutor(max_workers=20) as ex:
+        futs = {ex.submit(download_one, url): (tag, url) for tag, url in urls}
+        for fut in as_completed(futs):
+            tag, url = futs[fut]
+            d, err = fut.result()
+            if d is not None and not d.empty:
+                parts.append(d)
+            else:
+                misses.append((tag, err))
+    if not parts:
+        raise RuntimeError(f'No Binance Vision data for {symbol}')
+    x = pd.concat(parts).sort_index()
+    x = x[~x.index.duplicated(keep='last')]
+    x = x[x.index >= utc_ts(start)]
+    print(symbol, '4H rows=', len(x), 'from=', x.index.min(), 'to=', x.index.max(), 'misses=', len(misses), flush=True)
+    return x, misses
+
+
+def to_daily(x):
+    return x.resample('1D', label='left', closed='left').agg(
+        open=('open','first'), high=('high','max'), low=('low','min'), close=('close','last'), volume=('volume','sum')
+    ).dropna()
 
 
 def features(d):
@@ -88,7 +111,7 @@ def features(d):
     z['red'] = z['ret'] < 0
     z['green'] = z['ret'] > 0
     z['abs_body'] = z['ret'].abs()
-    # Strictly causal references: the current candle is excluded.
+    # Causal: current bar excluded from both reference windows.
     z['body_ref50'] = z['abs_body'].rolling(50, min_periods=50).median().shift(1)
     z['strong'] = z['abs_body'] >= z['body_ref50']
     z['vol_ref20'] = z['volume'].rolling(20, min_periods=20).mean().shift(1)
@@ -145,11 +168,8 @@ def pair_rows(b, a, tf, alt, horizons):
     rows = []
     for event, raw_mask in masks.items():
         for sample, mask in [('bars', raw_mask), ('onsets', onset(raw_mask))]:
-            r = {
-                'tf': tf, 'alt': alt.replace('USDT',''), 'event': event, 'sample': sample,
-                'start': str(idx.min()), 'end': str(idx.max()),
-                **event_stats(d, mask, horizons)
-            }
+            r = {'tf': tf, 'alt': alt.replace('USDT',''), 'event': event, 'sample': sample,
+                 'start': str(idx.min()), 'end': str(idx.max()), **event_stats(d, mask, horizons)}
             for h in horizons:
                 aa = d.loc[mask, f'alt_f{h}'].dropna()
                 joint = d.loc[mask, [f'btc_f{h}', f'alt_f{h}']].dropna()
@@ -228,45 +248,49 @@ def era_rows(d, tf, horizons):
 
 
 def main():
+    raw4 = {}
+    download_manifest = []
+    for s in ['BTCUSDT'] + ALTS:
+        x, misses = load_4h(s)
+        raw4[s] = x
+        download_manifest.append({'symbol': s, 'rows4h': len(x), 'start': str(x.index.min()), 'end': str(x.index.max()), 'missing_archives': len(misses)})
+
     pair_out = []
     breadth_out = []
     era_out = []
-    manifest = []
+    tf_manifest = []
 
-    for tf, cfg in CONFIG.items():
-        data = {}
-        # Fetch pair histories from their actual listings; BTC/ADA therefore starts in 2018.
-        for s in ['BTCUSDT'] + ALTS:
-            start = max(utc_ts(cfg['pair_start']), utc_ts(STARTS[s])).strftime('%Y-%m-%d')
-            x = features(fetch_klines(s, tf, start))
-            data[s] = x
-            manifest.append({'tf': tf, 'symbol': s, 'rows': len(x), 'start': str(x.index.min()), 'end': str(x.index.max())})
-
+    for tf in ['4h', '1d']:
+        raw = raw4 if tf == '4h' else {s: to_daily(x) for s, x in raw4.items()}
+        data = {s: features(x) for s, x in raw.items()}
+        horizons = HORIZONS[tf]
+        for s, x in raw.items():
+            tf_manifest.append({'tf': tf, 'symbol': s, 'rows': len(x), 'start': str(x.index.min()), 'end': str(x.index.max())})
         for alt in ALTS:
-            pair_out += pair_rows(data['BTCUSDT'], data[alt], tf, alt, cfg['h'])
-
-        # Breadth naturally starts when SOL exists because all six alts must be present.
-        br_rows, d = breadth_rows(data, tf, cfg['h'])
-        breadth_out += br_rows
+            pair_out += pair_rows(data['BTCUSDT'], data[alt], tf, alt, horizons)
+        br, d = breadth_rows(data, tf, horizons)
+        breadth_out += br
         if tf == '4h':
-            era_out += era_rows(d, tf, cfg['h'])
+            era_out += era_rows(d, tf, horizons)
 
     P = pd.DataFrame(pair_out)
     B = pd.DataFrame(breadth_out)
     E = pd.DataFrame(era_out)
-    M = pd.DataFrame(manifest)
+    M = pd.DataFrame(tf_manifest)
+    D = pd.DataFrame(download_manifest)
     P.to_csv(OUT / 'PAIRWISE.csv', index=False)
     B.to_csv(OUT / 'BREADTH.csv', index=False)
     E.to_csv(OUT / 'ERA_4H.csv', index=False)
     M.to_csv(OUT / 'MANIFEST.csv', index=False)
+    D.to_csv(OUT / 'DOWNLOAD_MANIFEST.csv', index=False)
 
     with open(OUT / 'REPORT.md', 'w', encoding='utf-8') as f:
         f.write('# RECHECK LIMPIO — BTC vs Alts\n\n')
-        f.write('Fuente homogénea: Binance Spot. Estudio descriptivo por cierre de vela; no es un modelo de ejecución. ') 
-        f.write('Volumen relativo = volumen actual / media de las 20 velas cerradas anteriores. ') 
-        f.write('Vela fuerte = cuerpo absoluto actual >= mediana de los cuerpos de las 50 velas cerradas anteriores. ') 
-        f.write('Se reportan tanto todas las velas como solo el inicio de cada episodio (onsets).\n\n')
-        f.write('## Manifest\n\n' + M.to_markdown(index=False) + '\n\n')
+        f.write('Fuente homogénea: Binance Spot vía Binance Vision. 4H nativo y diario agregado causalmente desde 4H UTC. ')
+        f.write('Volumen relativo = volumen actual / media de las 20 velas cerradas anteriores. ')
+        f.write('Vela fuerte = cuerpo absoluto actual >= mediana de los cuerpos de las 50 velas cerradas anteriores. ')
+        f.write('Se reportan todas las velas y también solo los inicios de episodio (onsets).\n\n')
+        f.write('## Descarga\n\n' + D.to_markdown(index=False) + '\n\n')
         f.write('## ADA 4H\n\n' + P[(P['alt']=='ADA') & (P['tf']=='4h')].to_markdown(index=False) + '\n\n')
         f.write('## Breadth 4H\n\n' + B[B['tf']=='4h'].to_markdown(index=False) + '\n\n')
         f.write('## Robustez 4H por era\n\n' + E.to_markdown(index=False) + '\n')
