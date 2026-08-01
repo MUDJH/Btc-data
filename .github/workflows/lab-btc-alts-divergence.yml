@@ -5,6 +5,7 @@ on:
     branches: [ lab-btc-alts-recovery-20260801 ]
     paths:
       - 'lab_btc_alts/run_btc_alts_v2.py'
+      - 'lab_btc_alts/run_btc_alts_v3.py'
       - 'lab_btc_alts/README.md'
       - '.github/workflows/lab-btc-alts-divergence.yml'
   pull_request:
@@ -29,22 +30,22 @@ jobs:
           python-version: '3.12'
       - name: Install dependencies
         run: pip install pandas numpy tabulate
-      - name: Run corrected full research V2
-        run: python lab_btc_alts/run_btc_alts_v2.py
+      - name: Run full research V3 from native Binance 15m archives
+        run: python lab_btc_alts/run_btc_alts_v3.py
       - name: Persist small audited outputs to research branch
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add lab_btc_alts/output_v2/manifest.csv lab_btc_alts/output_v2/PAIRWISE_ALL.csv lab_btc_alts/output_v2/BREADTH_ALL.csv lab_btc_alts/output_v2/ERA_ALL.csv lab_btc_alts/output_v2/REPORT.md
-          git commit -m "LAB results: BTC vs alts divergence V2" || exit 0
+          git commit -m "LAB results: BTC vs alts divergence V3" || exit 0
           git push origin HEAD:lab-btc-alts-recovery-20260801
       - name: Package output
         run: |
           cd lab_btc_alts
-          zip -r BTC_ALTS_DIVERGENCE_FULL_PASS_V2.zip output_v2
+          zip -r BTC_ALTS_DIVERGENCE_FULL_PASS_V3.zip output_v2
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: btc-alts-divergence-full-pass-v2
-          path: lab_btc_alts/BTC_ALTS_DIVERGENCE_FULL_PASS_V2.zip
+          name: btc-alts-divergence-full-pass-v3
+          path: lab_btc_alts/BTC_ALTS_DIVERGENCE_FULL_PASS_V3.zip
           retention-days: 7
