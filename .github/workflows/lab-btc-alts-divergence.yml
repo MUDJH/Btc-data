@@ -4,13 +4,13 @@ on:
   pull_request:
     branches: [ pinescript ]
     paths:
-      - 'lab_btc_alts/**'
+      - 'lab_btc_alts/recheck_clean.py'
       - '.github/workflows/lab-btc-alts-divergence.yml'
 
 jobs:
   research:
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -18,15 +18,15 @@ jobs:
           python-version: '3.12'
       - name: Install dependencies
         run: pip install pandas numpy tabulate
-      - name: Run full research V3 from native Binance 15m archives
-        run: python lab_btc_alts/run_btc_alts_v3.py
+      - name: Run clean 4H and 1D recheck
+        run: python lab_btc_alts/recheck_clean.py
       - name: Package output
         run: |
           cd lab_btc_alts
-          zip -r BTC_ALTS_DIVERGENCE_FULL_PASS_V3.zip output_v2
+          zip -r BTC_ALTS_RECHECK_CLEAN.zip recheck_clean_output
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: btc-alts-divergence-full-pass-v3
-          path: lab_btc_alts/BTC_ALTS_DIVERGENCE_FULL_PASS_V3.zip
+          name: btc-alts-recheck-clean
+          path: lab_btc_alts/BTC_ALTS_RECHECK_CLEAN.zip
           retention-days: 7
