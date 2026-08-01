@@ -4,13 +4,16 @@ on:
   push:
     branches: [ lab-btc-alts-recovery-20260801 ]
     paths:
-      - 'lab_btc_alts/**'
+      - 'lab_btc_alts/run_fast_recheck.py'
       - '.github/workflows/lab-btc-alts-divergence.yml'
   pull_request:
     branches: [ pinescript ]
     paths:
-      - 'lab_btc_alts/**'
+      - 'lab_btc_alts/run_fast_recheck.py'
       - '.github/workflows/lab-btc-alts-divergence.yml'
+
+permissions:
+  contents: write
 
 jobs:
   research:
@@ -18,6 +21,8 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: lab-btc-alts-recovery-20260801
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
@@ -25,6 +30,13 @@ jobs:
         run: pip install pandas numpy tabulate
       - name: Run fast historical recheck
         run: python lab_btc_alts/run_fast_recheck.py
+      - name: Persist audited outputs on research branch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add lab_btc_alts/fast_recheck_output/*.csv lab_btc_alts/fast_recheck_output/REPORT.md
+          git commit -m "LAB results: fast BTC vs alts recheck" || true
+          git push origin HEAD:lab-btc-alts-recovery-20260801
       - name: Package output
         run: |
           cd lab_btc_alts
