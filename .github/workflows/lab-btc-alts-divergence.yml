@@ -1,0 +1,33 @@
+name: LAB BTC vs Alts Divergence
+
+on:
+  push:
+    branches: [ lab-btc-alts-recovery-20260801 ]
+    paths:
+      - 'lab_btc_alts/**'
+      - '.github/workflows/lab-btc-alts-divergence.yml'
+  workflow_dispatch:
+
+jobs:
+  research:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install dependencies
+        run: pip install pandas numpy tabulate
+      - name: Run full research
+        run: python lab_btc_alts/run_btc_alts_divergence.py
+      - name: Package output
+        run: |
+          cd lab_btc_alts
+          zip -r BTC_ALTS_DIVERGENCE_FULL_PASS.zip output
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: btc-alts-divergence-full-pass
+          path: lab_btc_alts/BTC_ALTS_DIVERGENCE_FULL_PASS.zip
+          retention-days: 7
