@@ -1,17 +1,11 @@
 name: LAB BTC vs Alts Divergence
 
 on:
-  push:
-    branches: [ lab-btc-alts-recovery-20260801 ]
-    paths:
-      - 'lab_btc_alts/**'
-      - '.github/workflows/lab-btc-alts-divergence.yml'
   pull_request:
     branches: [ pinescript ]
     paths:
       - 'lab_btc_alts/**'
       - '.github/workflows/lab-btc-alts-divergence.yml'
-  workflow_dispatch:
 
 jobs:
   research:
