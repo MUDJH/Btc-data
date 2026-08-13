@@ -1,0 +1,56 @@
+name: Update BTC and altcoin data tails
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "35 1 * * *"
+  push:
+    branches: [pinescript]
+    paths:
+      - "scripts/build_market_data_update.py"
+      - ".github/workflows/update-market-data.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: market-data-tail-update
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: pinescript
+          fetch-depth: 1
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Download, normalize, deduplicate, and validate tails
+        run: python scripts/build_market_data_update.py
+
+      - name: Upload validated data artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: market-data-update
+          path: tails/
+          if-no-files-found: error
+          retention-days: 14
+          compression-level: 0
+
+      - name: Publish current tails to pinescript
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add tails
+          if git diff --cached --quiet; then
+            echo "No data changes"
+            exit 0
+          fi
+          git commit -m "Update market data tails [skip ci]"
+          git push origin HEAD:pinescript
