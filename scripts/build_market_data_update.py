@@ -230,7 +230,30 @@ def build_bitstamp() -> dict:
             writer.writerow(rows[ms])
     os.replace(tmp, gz_path)
     raw_path.unlink()
-    return manifest_entry(gz_path, rows, "ff137 Bitstamp BTCUSD latest overlap", [])
+
+    chunk_dir = TAILS / "BTCUSD_BITSTAMP_1m_latest.parts"
+    if chunk_dir.exists():
+        shutil.rmtree(chunk_dir)
+    chunk_dir.mkdir()
+    chunks = []
+    with gz_path.open("rb") as source:
+        index = 0
+        while True:
+            payload = source.read(700_000)
+            if not payload:
+                break
+            part = chunk_dir / f"part_{index:03d}.bin"
+            part.write_bytes(payload)
+            chunks.append({
+                "file": f"{chunk_dir.name}/{part.name}",
+                "bytes": len(payload),
+                "sha256": hashlib.sha256(payload).hexdigest(),
+            })
+            index += 1
+
+    entry = manifest_entry(gz_path, rows, "ff137 Bitstamp BTCUSD latest overlap", [])
+    entry["parts"] = chunks
+    return entry
 
 
 def manifest_entry(path: Path, rows: dict[int, list[str]], source: str, skipped: list[str]) -> dict:
