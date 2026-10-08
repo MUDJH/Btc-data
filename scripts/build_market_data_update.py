@@ -3,6 +3,7 @@
 
 Sources:
 - Binance Public Data daily 1m kline archives.
+- Binance USD-M Futures API funding history.
 - ff137/bitstamp-btcusd-minute-data latest overlap CSV.
 
 All timestamps written by this script are normalized to Unix milliseconds.
@@ -43,6 +44,14 @@ SPOT_SYMBOLS = {
 BTC_CONFIGS = {
     "BTCUSDT_SPOT_1m.csv.gz": ("spot", "BTCUSDT", date(2026, 8, 5)),
     "BTCUSDT_USDM_PERP_1m.csv.gz": ("um", "BTCUSDT", date(2026, 8, 6)),
+}
+USDM_TAILS = {
+    "XAUUSDT_BINANCE_USDM_PERP_1m.csv.gz": ("XAUUSDT", date(2026, 10, 1)),
+    "SPYUSDT_BINANCE_USDM_PERP_1m.csv.gz": ("SPYUSDT", date(2026, 10, 1)),
+}
+FUNDING_TAILS = {
+    "XAUUSDT_BINANCE_FUNDING.csv.gz": ("XAUUSDT", date(2026, 10, 1)),
+    "SPYUSDT_BINANCE_FUNDING.csv.gz": ("SPYUSDT", date(2026, 10, 1)),
 }
 BITSTAMP_URL = (
     "https://raw.githubusercontent.com/ff137/"
@@ -207,6 +216,89 @@ def build_btc(filename: str, market: str, symbol: str, configured_start: date, e
     return manifest_entry(path, merged, source, skipped)
 
 
+def build_usdm_tail(filename: str, symbol: str, configured_start: date, end: date) -> dict:
+    path = TAILS / filename
+    header, merged = load_existing(path)
+    start = start_for(path, configured_start)
+    fresh, skipped = download_days("um", symbol, start, end)
+    for raw in fresh:
+        open_ms = norm_ms(raw[0])
+        close_ms = norm_ms(raw[6])
+        merged[open_ms] = [
+            str(open_ms),
+            iso_ms(open_ms),
+            raw[1],
+            raw[2],
+            raw[3],
+            raw[4],
+            raw[5],
+            str(close_ms),
+            raw[7],
+            raw[8],
+            raw[9],
+            raw[10],
+            raw[11] if len(raw) > 11 else "0",
+        ]
+    out_header = header or [
+        "open_time_ms", "open_time_utc", "open", "high", "low", "close",
+        "volume", "close_time_ms", "quote_volume", "trade_count",
+        "taker_buy_base_volume", "taker_buy_quote_volume", "ignore",
+    ]
+    keys = sorted(merged)
+    gaps = sum(1 for left, right in zip(keys, keys[1:]) if right - left != 60_000)
+    if gaps:
+        raise RuntimeError(f"{filename} has {gaps} non-1m transitions")
+    write_gzip(path, out_header, merged)
+    return manifest_entry(path, merged, "Binance USD-M futures daily archives", skipped)
+
+
+def funding_api_rows(symbol: str, start: date, end: date) -> list[dict]:
+    start_ms = int(datetime.combine(start, datetime.min.time(), UTC).timestamp() * 1000)
+    end_ms = int(datetime.combine(end + timedelta(days=1), datetime.min.time(), UTC).timestamp() * 1000) - 1
+    rows: list[dict] = []
+    cursor = start_ms
+    while cursor <= end_ms:
+        url = (
+            "https://fapi.binance.com/fapi/v1/fundingRate"
+            f"?symbol={symbol}&startTime={cursor}&endTime={end_ms}&limit=1000"
+        )
+        batch = json.loads(request_bytes(url))
+        if not batch:
+            break
+        rows.extend(batch)
+        last_ms = max(int(item["fundingTime"]) for item in batch)
+        if len(batch) < 1000 or last_ms >= end_ms:
+            break
+        cursor = last_ms + 1
+    return rows
+
+
+def build_funding_tail(filename: str, symbol: str, configured_start: date, end: date) -> dict:
+    path = TAILS / filename
+    header, merged = load_existing(path)
+    start = start_for(path, configured_start)
+    for item in funding_api_rows(symbol, start, end):
+        ms = int(item["fundingTime"])
+        merged[ms] = [str(ms), iso_ms(ms), "", item["fundingRate"]]
+    keys = sorted(merged)
+    for index, ms in enumerate(keys):
+        row = merged[ms]
+        if len(row) >= 3 and row[2]:
+            continue
+        if index > 0:
+            hours = (ms - keys[index - 1]) / 3_600_000
+        elif len(keys) > 1:
+            hours = (keys[1] - ms) / 3_600_000
+        else:
+            hours = 0
+        row[2] = f"{hours:g}" if hours > 0 else ""
+    out_header = header or [
+        "funding_time_ms", "funding_time_utc", "funding_interval_hours", "last_funding_rate",
+    ]
+    write_gzip(path, out_header, merged)
+    return manifest_entry(path, merged, "Binance USD-M Futures API funding history", [])
+
+
 def build_bitstamp() -> dict:
     payload = request_bytes(BITSTAMP_URL)
     raw_path = TAILS / "BTCUSD_BITSTAMP_1m_latest.csv"
@@ -287,6 +379,10 @@ def main() -> None:
         manifest["files"].append(build_alt(symbol, start, end))
     for filename, (market, symbol, start) in BTC_CONFIGS.items():
         manifest["files"].append(build_btc(filename, market, symbol, start, end))
+    for filename, (symbol, start) in USDM_TAILS.items():
+        manifest["files"].append(build_usdm_tail(filename, symbol, start, end))
+    for filename, (symbol, start) in FUNDING_TAILS.items():
+        manifest["files"].append(build_funding_tail(filename, symbol, start, end))
     manifest["files"].append(build_bitstamp())
     manifest["files"].sort(key=lambda item: item["file"])
     (TAILS / "manifest.json").write_text(

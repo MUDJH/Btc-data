@@ -1,4 +1,4 @@
-name: Update BTC and altcoin data tails
+name: Update crypto, gold, and S&P data tails
 
 on:
   workflow_dispatch:
