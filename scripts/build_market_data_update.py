@@ -67,8 +67,13 @@ def request_bytes(url: str, attempts: int = 4) -> bytes:
             req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
             with urllib.request.urlopen(req, timeout=90) as response:
                 return response.read()
-        except urllib.error.HTTPError:
-            raise
+        except urllib.error.HTTPError as exc:
+            if exc.code not in (429, 500, 502, 503, 504):
+                raise
+            last = exc
+            if attempt + 1 < attempts:
+                retry_after = exc.headers.get("Retry-After")
+                time.sleep(float(retry_after) if retry_after else 2 ** attempt)
         except Exception as exc:
             last = exc
             if attempt + 1 < attempts:
