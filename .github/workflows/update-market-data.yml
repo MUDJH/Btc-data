@@ -9,6 +9,7 @@ on:
     paths:
       - "scripts/build_market_data_update.py"
       - ".github/workflows/update-market-data.yml"
+      - "tests/test_market_data_update.py"
 
 permissions:
   contents: write
@@ -30,6 +31,9 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+
+      - name: Test data recovery and publication safeguards
+        run: python -m unittest discover -s tests -p test_market_data_update.py -v
 
       - name: Download, normalize, deduplicate, and validate tails
         run: python scripts/build_market_data_update.py
@@ -54,3 +58,20 @@ jobs:
           fi
           git commit -m "Update market data tails [skip ci]"
           git push origin HEAD:pinescript
+
+      - name: Report crypto update health
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          data = json.loads(Path("tails/manifest.json").read_text())
+          for warning in data.get("warnings", []):
+              print("::warning::" + json.dumps(warning))
+          for error in data.get("errors", []):
+              level = "error" if error.get("required_crypto") else "warning"
+              print(f"::{level}::" + json.dumps(error))
+          if data.get("required_crypto_failed"):
+              raise SystemExit("Some crypto tails could not be updated; previous versions were retained.")
+          PY
+
+

@@ -1,0 +1,34 @@
+{
+  "source": "Binance official USD-M REST 1m klines",
+  "symbol": "BTCUSDT",
+  "validation_day_utc": "2026-10-29",
+  "minute_rows": 1440,
+  "all_12_fields_equal": true,
+  "mismatches_by_column": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+  ],
+  "rest_responses": [
+    {
+      "url": "https://fapi.binance.com/fapi/v1/klines?symbol=BTCUSDT&interval=1m&startTime=1793232000000&endTime=1793318399999&limit=1000",
+      "sha256": "98951a1e781c84b49e682730b30a97e19f00bb882d465eb9ce2bf832fdf6b9dc"
+    },
+    {
+      "url": "https://fapi.binance.com/fapi/v1/klines?symbol=BTCUSDT&interval=1m&startTime=1793292000000&endTime=1793318399999&limit=1000",
+      "sha256": "a7c0abadf6503938f74ed0cf5817a47b691d00176dfd08c908d72fb1070a3ee9"
+    }
+  ],
+  "official_archive_url": "https://data.binance.vision/data/futures/um/daily/klines/BTCUSDT/1m/BTCUSDT-1m-2026-10-29.zip",
+  "official_archive_sha256": "dc1c9a870c05b73633d0f7f72980999e30668fdf7e69004188bcee2a6d5c260d"
+}
+

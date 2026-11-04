@@ -1,0 +1,106 @@
+{
+  "raw_trades": 4478291,
+  "first_trade_id": 8212462291,
+  "last_trade_id": 8217262654,
+  "trade_id_jump_count": 38856,
+  "trade_ids_skipped_in_sequence": 322073,
+  "minute_rows": 1440,
+  "algorithm": "usd-m-raw-trades-ohlcv-decimal-v1",
+  "validation_day_utc": "2026-10-29",
+  "symbol": "BTCUSDT",
+  "market": "Binance USD-M perpetual",
+  "raw_trades_url": "https://data.binance.vision/data/futures/um/daily/trades/BTCUSDT/BTCUSDT-trades-2026-10-29.zip",
+  "raw_trades_sha256": "a634b1cc9e3858d732688afc6c8f5d51277a683a27254fc54f4ff70e29bc9d69",
+  "official_klines_url": "https://data.binance.vision/data/futures/um/daily/klines/BTCUSDT/1m/BTCUSDT-1m-2026-10-29.zip",
+  "official_klines_sha256": "dc1c9a870c05b73633d0f7f72980999e30668fdf7e69004188bcee2a6d5c260d",
+  "all_12_fields_equal": false,
+  "mismatches_by_column": [
+    0,
+    39,
+    16,
+    14,
+    36,
+    150,
+    0,
+    150,
+    150,
+    148,
+    148,
+    0
+  ],
+  "examples": [
+    {
+      "minute": "1793309100000",
+      "column": 5,
+      "recovered": "147.486",
+      "official": "147.487"
+    },
+    {
+      "minute": "1793309100000",
+      "column": 7,
+      "recovered": "11717500.3599",
+      "official": "11717579.77480"
+    },
+    {
+      "minute": "1793309100000",
+      "column": 8,
+      "recovered": "4528",
+      "official": "4529"
+    },
+    {
+      "minute": "1793309220000",
+      "column": 5,
+      "recovered": "452.992",
+      "official": "453.022"
+    },
+    {
+      "minute": "1793309220000",
+      "column": 7,
+      "recovered": "35895974.2328",
+      "official": "35898351.31990"
+    },
+    {
+      "minute": "1793309220000",
+      "column": 8,
+      "recovered": "6928",
+      "official": "6931"
+    },
+    {
+      "minute": "1793309220000",
+      "column": 9,
+      "recovered": "236.425",
+      "official": "236.437"
+    },
+    {
+      "minute": "1793309220000",
+      "column": 10,
+      "recovered": "18734701.3776",
+      "official": "18735652.32470"
+    },
+    {
+      "minute": "1793309280000",
+      "column": 5,
+      "recovered": "255.220",
+      "official": "255.232"
+    },
+    {
+      "minute": "1793309280000",
+      "column": 7,
+      "recovered": "20221538.7025",
+      "official": "20222489.19130"
+    },
+    {
+      "minute": "1793309280000",
+      "column": 8,
+      "recovered": "4165",
+      "official": "4166"
+    },
+    {
+      "minute": "1793309280000",
+      "column": 9,
+      "recovered": "137.835",
+      "official": "137.847"
+    }
+  ]
+}
+

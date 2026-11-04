@@ -5,7 +5,8 @@ Sources:
 - Binance Public Data daily 1m kline archives.
 - ff137/bitstamp-btcusd-minute-data latest overlap CSV.
 
-All timestamps written by this script are normalized to Unix milliseconds.
+Binance timestamps are normalized to Unix milliseconds. Bitstamp preserves
+its source-native seconds for compatibility, as declared in the manifest.
 """
 from __future__ import annotations
 
@@ -23,6 +24,8 @@ import urllib.request
 import zipfile
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import date, datetime, timedelta, timezone
+from decimal import Decimal
+from functools import lru_cache
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -30,6 +33,7 @@ TAILS = ROOT / "tails"
 TAILS.mkdir(parents=True, exist_ok=True)
 UTC = timezone.utc
 USER_AGENT = "MUDJH-Btc-data-updater/1.0"
+ARCHIVE_FALLBACKS: list[dict] = []
 
 SPOT_SYMBOLS = {
     "ADAUSDT": date(2026, 7, 10),
@@ -100,9 +104,7 @@ def archive_url(market: str, symbol: str, day: date) -> str:
     )
 
 
-def read_archive(market: str, symbol: str, day: date) -> list[list[str]]:
-    url = archive_url(market, symbol, day)
-    payload = request_bytes(url)
+def parse_archive(payload: bytes, url: str) -> list[list[str]]:
     with zipfile.ZipFile(io.BytesIO(payload)) as zf:
         members = [n for n in zf.namelist() if n.lower().endswith(".csv")]
         if len(members) != 1:
@@ -115,6 +117,84 @@ def read_archive(market: str, symbol: str, day: date) -> list[list[str]]:
                     continue
                 rows.append(row)
             return rows
+
+
+@lru_cache(maxsize=4)
+def read_month_archive(market: str, symbol: str, month: str) -> list[list[str]]:
+    prefix = "spot" if market == "spot" else "futures/um"
+    url = (f"https://data.binance.vision/data/{prefix}/monthly/klines/"
+           f"{symbol}/1m/{symbol}-1m-{month}.zip")
+    return parse_archive(request_bytes(url), url)
+
+
+def read_rest_day(symbol: str, day: date) -> tuple[list[list[str]], list[dict]]:
+    """Read only closed 1m USD-M candles from the official public REST API."""
+    start = int(datetime.combine(day, datetime.min.time(), UTC).timestamp() * 1000)
+    stop = start + 86_400_000
+    cursor = start
+    rows = []
+    responses = []
+    while cursor < stop:
+        url = (f"https://fapi.binance.com/fapi/v1/klines?symbol={symbol}&interval=1m"
+               f"&startTime={cursor}&endTime={stop - 1}&limit=1000")
+        payload = request_bytes(url)
+        data = json.loads(payload)
+        if not isinstance(data, list) or not data:
+            raise RuntimeError(f"empty or invalid USD-M REST response for {symbol} {day}: {data}")
+        responses.append({"url": url, "sha256": hashlib.sha256(payload).hexdigest()})
+        for raw in data:
+            if len(raw) != 12:
+                raise RuntimeError("unexpected USD-M REST kline schema")
+            row = [str(value) for value in raw]
+            stamp = norm_ms(row[0])
+            if stamp != cursor or stamp >= stop or norm_ms(row[6]) != stamp + 59_999:
+                raise RuntimeError("USD-M REST missing, duplicate, unclosed, or out-of-range minute")
+            opening, high, low, close, volume = map(Decimal, row[1:6])
+            if not all(value.is_finite() for value in (opening, high, low, close, volume)) or min(opening, high, low, close) <= 0 or volume < 0 or high < max(opening, close) or low > min(opening, close):
+                raise RuntimeError("invalid USD-M REST OHLCV values")
+            rows.append(row)
+            cursor = stamp + 60_000
+    if len(rows) != 1440:
+        raise RuntimeError(f"USD-M REST returned {len(rows)} minutes for a closed UTC day")
+    return rows, responses
+
+
+def read_archive(market: str, symbol: str, day: date) -> list[list[str]]:
+    url = archive_url(market, symbol, day)
+    try:
+        return parse_archive(request_bytes(url), url)
+    except urllib.error.HTTPError as daily_error:
+        if daily_error.code != 404:
+            raise
+        # Daily objects can be absent even after their data are published in
+        # the official monthly archive. Never fill a missing day with prices
+        # from another market, synthetic candles, or neighbouring days.
+        month = day.strftime("%Y-%m")
+        try:
+            monthly = read_month_archive(market, symbol, month)
+        except urllib.error.HTTPError as monthly_error:
+            if monthly_error.code == 404:
+                monthly = []
+            else:
+                raise
+        start_ms = int(datetime.combine(day, datetime.min.time(), UTC).timestamp() * 1000)
+        recovered = [row for row in monthly if start_ms <= norm_ms(row[0]) < start_ms + 86_400_000]
+        if not recovered:
+            if market == "um":
+                try:
+                    rest_rows, responses = read_rest_day(symbol, day)
+                    ARCHIVE_FALLBACKS.append({"market": "um", "symbol": symbol,
+                                              "day": day.isoformat(), "source": "Binance official USD-M REST 1m klines",
+                                              "minute_rows": len(rest_rows), "responses": responses})
+                    return rest_rows
+                except urllib.error.HTTPError as rest_error:
+                    if rest_error.code != 404:
+                        raise
+                    raise daily_error from rest_error
+            raise daily_error
+        ARCHIVE_FALLBACKS.append({"market": market, "symbol": symbol,
+                                  "day": day.isoformat(), "source": "Binance monthly archive"})
+        return recovered
 
 
 def load_existing(path: Path) -> tuple[list[str] | None, dict[int, list[str]]]:
@@ -156,7 +236,31 @@ def download_days(market: str, symbol: str, start: date, end: date) -> tuple[lis
                     skipped.append(day.isoformat())
                 else:
                     raise
+    if skipped and rows:
+        last_day = datetime.fromtimestamp(max(norm_ms(row[0]) for row in rows) / 1000, UTC).date()
+        if any(date.fromisoformat(day) < last_day for day in skipped):
+            raise RuntimeError(f"{symbol}: unavailable archive inside the requested interval: {sorted(skipped)}")
     return rows, sorted(skipped)
+
+
+def gap_summary(rows: dict[int, list[str]]) -> dict:
+    keys = sorted(rows)
+    intervals = []
+    missing_minutes = 0
+    for left, right in zip(keys, keys[1:]):
+        if right - left != 60_000:
+            absent = max(0, (right - left) // 60_000 - 1)
+            missing_minutes += absent
+            intervals.append({"after_utc": iso_ms(left), "before_utc": iso_ms(right),
+                              "missing_minutes": absent})
+    return {"non_1m_transitions": len(intervals), "missing_minutes": missing_minutes,
+            "intervals": intervals}
+
+
+def require_continuous(rows: dict[int, list[str]], filename: str) -> None:
+    gaps = gap_summary(rows)
+    if gaps["non_1m_transitions"]:
+        raise RuntimeError(f"{filename}: {gaps['non_1m_transitions']} non-1m transitions; no candles synthesized")
 
 
 def write_gzip(path: Path, header: list[str], rows: dict[int, list[str]]) -> None:
@@ -178,6 +282,7 @@ def build_alt(symbol: str, configured_start: date, end: date) -> dict:
         ms = norm_ms(raw[0])
         merged[ms] = [str(ms), raw[1], raw[2], raw[3], raw[4], raw[5]]
     out_header = header or ["timestamp", "open", "high", "low", "close", "volume"]
+    require_continuous(merged, path.name)
     write_gzip(path, out_header, merged)
     return manifest_entry(path, merged, "Binance spot daily archives", skipped)
 
@@ -211,6 +316,7 @@ def build_btc(filename: str, market: str, symbol: str, configured_start: date, e
         "volume_base", "close_time_ms", "close_time_utc", "quote_volume",
         "trade_count", "taker_buy_base_volume", "taker_buy_quote_volume", "ignore",
     ]
+    require_continuous(merged, path.name)
     write_gzip(path, out_header, merged)
     source = "Binance spot daily archives" if market == "spot" else "Binance USD-M futures daily archives"
     return manifest_entry(path, merged, source, skipped)
@@ -244,10 +350,8 @@ def build_usdm_tail(filename: str, symbol: str, configured_start: date, end: dat
         "volume", "close_time_ms", "quote_volume", "trade_count",
         "taker_buy_base_volume", "taker_buy_quote_volume", "ignore",
     ]
-    keys = sorted(merged)
-    gaps = sum(1 for left, right in zip(keys, keys[1:]) if right - left != 60_000)
-    if gaps:
-        raise RuntimeError(f"{filename} has {gaps} non-1m transitions")
+    # Preserve the source rows and report gaps explicitly. These separate
+    # instruments must never prevent BTC/alt tails from being published.
     write_gzip(path, out_header, merged)
     return manifest_entry(path, merged, "Binance USD-M futures daily archives", skipped)
 
@@ -278,6 +382,8 @@ def build_bitstamp() -> dict:
 
     chunk_dir = TAILS / "BTCUSD_BITSTAMP_1m_latest.parts"
     if chunk_dir.exists():
+        if chunk_dir.resolve().parent != TAILS.resolve():
+            raise RuntimeError("unsafe Bitstamp parts cleanup path")
         shutil.rmtree(chunk_dir)
     chunk_dir.mkdir()
     chunks = []
@@ -317,31 +423,123 @@ def manifest_entry(path: Path, rows: dict[int, list[str]], source: str, skipped:
         "sha256": digest,
         "bytes": path.stat().st_size,
         "recent_archives_not_yet_published": skipped,
+        "continuity": gap_summary(rows),
     }
+
+
+def run_isolated(filename: str, builder) -> dict:
+    """A failed dataset leaves its previously published file untouched."""
+    global TAILS
+    destination = TAILS
+    with tempfile.TemporaryDirectory(prefix="market-data-stage-", dir=ROOT) as temp:
+        stage = Path(temp)
+        if stage.resolve().parent != ROOT.resolve():
+            raise RuntimeError("unsafe staging directory")
+        existing = destination / filename
+        if existing.exists():
+            shutil.copy2(existing, stage / filename)
+        TAILS = stage
+        try:
+            result = builder()
+        finally:
+            TAILS = destination
+        for source in sorted(stage.rglob("*")):
+            if source.is_file():
+                target = destination / source.relative_to(stage)
+                target.parent.mkdir(parents=True, exist_ok=True)
+                os.replace(source, target)
+        if filename == "BTCUSD_BITSTAMP_1m_latest.csv.gz":
+            parts = destination / "BTCUSD_BITSTAMP_1m_latest.parts"
+            expected = {Path(item["file"]).name for item in result["parts"]}
+            for part in parts.glob("part_*.bin"):
+                if part.name not in expected:
+                    part.unlink()
+        return result
 
 
 def main() -> None:
     end = datetime.now(UTC).date() - timedelta(days=1)
+    previous_manifest = TAILS / "manifest.json"
+    previous = {}
+    previous_payload = {}
+    if previous_manifest.exists():
+        previous_payload = json.loads(previous_manifest.read_text(encoding="utf-8"))
+        previous = {item["file"]: item for item in previous_payload["files"]}
     manifest = {
         "generated_at_utc": datetime.now(UTC).isoformat(),
         "through_requested_utc_day": end.isoformat(),
         "timestamp_unit": "milliseconds (Binance outputs); source-native seconds in Bitstamp rows",
         "files": [],
+        "errors": [],
+        "warnings": [],
     }
+    jobs = []
     for symbol, start in SPOT_SYMBOLS.items():
-        manifest["files"].append(build_alt(symbol, start, end))
+        filename = f"{symbol}_1m_spot.csv.gz"
+        jobs.append((filename, True, lambda s=symbol, d=start: build_alt(s, d, end)))
     for filename, (market, symbol, start) in BTC_CONFIGS.items():
-        manifest["files"].append(build_btc(filename, market, symbol, start, end))
+        jobs.append((filename, True, lambda f=filename, m=market, s=symbol, d=start: build_btc(f, m, s, d, end)))
     for filename, (symbol, start) in USDM_TAILS.items():
-        manifest["files"].append(build_usdm_tail(filename, symbol, start, end))
-    manifest["files"].append(build_bitstamp())
+        jobs.append((filename, False, lambda f=filename, s=symbol, d=start: build_usdm_tail(f, s, d, end)))
+    jobs.append(("BTCUSD_BITSTAMP_1m_latest.csv.gz", True, build_bitstamp))
+    for filename, required, builder in jobs:
+        try:
+            entry = run_isolated(filename, builder)
+            entry["update_status"] = "updated"
+        except Exception as exc:
+            error = {"file": filename, "required_crypto": required,
+                     "error": f"{type(exc).__name__}: {exc}"}
+            if getattr(exc, "url", None):
+                error["url"] = exc.url
+            manifest["errors"].append(error)
+            print(f"::warning file=scripts/build_market_data_update.py::{filename}: {error['error']}", flush=True)
+            path = TAILS / filename
+            if path.exists():
+                _, retained = load_existing(path)
+                entry = manifest_entry(path, retained, "Retained previous file; see error", [])
+                old = previous.get(filename, {})
+                if old.get("sha256") == entry["sha256"]:
+                    entry["source"] = old.get("source", entry["source"])
+                    if "parts" in old:
+                        entry["parts"] = old["parts"]
+                    entry["previous_manifest_generated_at_utc"] = previous_payload.get("generated_at_utc")
+                entry["update_status"] = "error_preserved"
+            else:
+                entry = {"file": filename, "update_status": "error_no_file"}
+            entry["error"] = error["error"]
+        entry["required_crypto"] = required
+        if entry.get("continuity", {}).get("non_1m_transitions", 0):
+            warning = {"file": filename, "kind": "source_gaps", "continuity": entry["continuity"]}
+            manifest["warnings"].append(warning)
+            print(f"::warning::{filename}: source gaps recorded in manifest; no candles synthesized", flush=True)
+        if "last_timestamp_ms" in entry:
+            lag = max(0, (end - datetime.fromtimestamp(entry["last_timestamp_ms"] / 1000, UTC).date()).days)
+            entry["lag_days_against_requested_day"] = lag
+            if lag:
+                manifest["warnings"].append({"file": filename, "kind": "source_lag", "lag_days": lag})
+        manifest["files"].append(entry)
+    successful = {filename for filename, _, _ in jobs
+                  if next(entry for entry in manifest["files"] if entry["file"] == filename)["update_status"] == "updated"}
+    symbol_files = {("spot", symbol): f"{symbol}_1m_spot.csv.gz" for symbol in SPOT_SYMBOLS}
+    symbol_files.update({(market, symbol): filename for filename, (market, symbol, _) in BTC_CONFIGS.items()})
+    symbol_files.update({("um", symbol): filename for filename, (symbol, _) in USDM_TAILS.items()})
+    applied = [item for item in ARCHIVE_FALLBACKS if symbol_files.get((item["market"], item["symbol"])) in successful]
+    history = {(item["market"], item["symbol"], item["day"]): item for item in previous_payload.get("archive_fallbacks", [])}
+    history.update({(item["market"], item["symbol"], item["day"]): item for item in applied})
+    manifest["archive_fallbacks"] = sorted(history.values(), key=lambda item: (item["symbol"], item["day"]))
+    manifest["health"] = "degraded" if manifest["errors"] or manifest["warnings"] else "ok"
+    manifest["required_crypto_failed"] = any(item["required_crypto"] for item in manifest["errors"])
     manifest["files"].sort(key=lambda item: item["file"])
-    (TAILS / "manifest.json").write_text(
+    temporary_manifest = TAILS / "manifest.json.tmp"
+    temporary_manifest.write_text(
         json.dumps(manifest, indent=2, ensure_ascii=False) + "\n",
         encoding="utf-8",
     )
+    os.replace(temporary_manifest, TAILS / "manifest.json")
     print(json.dumps(manifest, indent=2, ensure_ascii=False))
 
 
 if __name__ == "__main__":
     main()
+
+
