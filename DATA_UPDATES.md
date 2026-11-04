@@ -17,6 +17,12 @@ bounds. Response URLs and SHA-256 digests remain in the manifest across runs.
 all 12 fields of all 1,440 official REST candles equal the checksum-verified
 daily archive.
 
+The recovered 2026-10-28 candles for BTCUSDT, XAUUSDT, and SPYUSDT are saved
+under `data_recovery/` with compressed and CSV SHA-256 checksums and their
+original response provenance. These approved saved candles are checked
+before requesting REST again. This also lets GitHub runners reuse the
+already retrieved data when their location cannot access the live API.
+
 Raw-trade aggregation is not used. The negative control in
 `data_recovery/RAW_TRADE_VALIDATION_2026-10-29.json` failed to reproduce the
 official daily klines, so those reconstructed rows were rejected.

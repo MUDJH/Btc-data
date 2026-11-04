@@ -37,6 +37,9 @@ class UpdateRecoveryTests(unittest.TestCase):
     def setUp(self):
         updater.read_month_archive.cache_clear()
         updater.ARCHIVE_FALLBACKS.clear()
+        recovery_patch = patch.object(updater, "RECOVERY_DIR", Path(__file__).parent / "no_live_snapshots_in_unit_tests")
+        recovery_patch.start()
+        self.addCleanup(recovery_patch.stop)
 
     def test_daily_404_recovers_only_requested_day_from_monthly(self):
         day = date(2026, 10, 28)
@@ -114,6 +117,27 @@ class UpdateRecoveryTests(unittest.TestCase):
         with patch.object(updater, "request_bytes", return_value=json.dumps([row]).encode()):
             with self.assertRaisesRegex(RuntimeError, "invalid USD-M REST OHLCV"):
                 updater.read_rest_day("BTCUSDT", date(2026, 10, 28))
+
+    def test_verified_saved_day_works_without_live_api(self):
+        import hashlib
+        day = date(2026, 10, 28)
+        start = int(datetime(2026, 10, 28, tzinfo=timezone.utc).timestamp() * 1000)
+        candles = [raw_row(start + minute * 60_000) for minute in range(1440)]
+        payload = ("\n".join(",".join(row) for row in candles) + "\n").encode()
+        compressed = gzip.compress(payload, mtime=0)
+        with tempfile.TemporaryDirectory(dir=Path(__file__).parent) as temp:
+            root = Path(temp)
+            (root / "day.csv.gz").write_bytes(compressed)
+            entry = {"market": "um", "symbol": "BTCUSDT", "day": day.isoformat(), "file": "day.csv.gz",
+                     "sha256": hashlib.sha256(compressed).hexdigest(), "csv_sha256": hashlib.sha256(payload).hexdigest(),
+                     "provenance": {"market": "um", "symbol": "BTCUSDT", "day": day.isoformat()}}
+            (root / "approved_snapshots.json").write_text(json.dumps({"snapshots": [entry]}))
+            with patch.object(updater, "RECOVERY_DIR", root), patch.object(updater, "request_bytes", side_effect=missing("daily")), patch.object(updater, "read_month_archive", return_value=[]), patch.object(updater, "read_rest_day", side_effect=AssertionError("live API must not be called")):
+                actual = updater.read_archive("um", "BTCUSDT", day)
+                self.assertEqual(actual, candles)
+                (root / "day.csv.gz").write_bytes(compressed + b"tampered")
+                with self.assertRaisesRegex(RuntimeError, "snapshot checksum"):
+                    updater.load_approved_day("BTCUSDT", day)
 
     def test_failed_dataset_keeps_old_bytes_and_restores_destination(self):
         with tempfile.TemporaryDirectory(dir=Path(__file__).parent) as temp:

@@ -1,0 +1,87 @@
+{
+  "source": "Previously retrieved official Binance REST candles; closed UTC day; no reconstructed trades",
+  "snapshots": [
+    {
+      "file": "um_BTCUSDT_1m_2026-10-28.csv.gz",
+      "market": "um",
+      "symbol": "BTCUSDT",
+      "day": "2026-10-28",
+      "rows": 1440,
+      "sha256": "0ec653f19ab6666effe10833ed33a90095265144849eedbaaceea897f161f4af",
+      "csv_sha256": "34226f9bfc6b02bc126c789e6527f6ff2bc4a9e239cffe61070221f4be2c4c6f",
+      "bytes": 59776,
+      "provenance": {
+        "market": "um",
+        "symbol": "BTCUSDT",
+        "day": "2026-10-28",
+        "source": "Binance official USD-M REST 1m klines",
+        "minute_rows": 1440,
+        "responses": [
+          {
+            "url": "https://fapi.binance.com/fapi/v1/klines?symbol=BTCUSDT&interval=1m&startTime=1793145600000&endTime=1793231999999&limit=1000",
+            "sha256": "35a7bd8755404f337e5d30c16478c87cb8f4dcc295eb967420f112eed1c7f934"
+          },
+          {
+            "url": "https://fapi.binance.com/fapi/v1/klines?symbol=BTCUSDT&interval=1m&startTime=1793205600000&endTime=1793231999999&limit=1000",
+            "sha256": "0eb6c8837f8ac13fd6b2b53661390cda84c8155f1a99fa9ac45feaa6d89935e1"
+          }
+        ]
+      }
+    },
+    {
+      "file": "um_XAUUSDT_1m_2026-10-28.csv.gz",
+      "market": "um",
+      "symbol": "XAUUSDT",
+      "day": "2026-10-28",
+      "rows": 1440,
+      "sha256": "fb4f496293cbe7bbc667a3b59b549072810ea40ae382f1dcb7c2ea65d78b3935",
+      "csv_sha256": "a9c6a330bce4ed2c1b669ea4443a7d40e412578ddc999513c94c103a6b52f86b",
+      "bytes": 58890,
+      "provenance": {
+        "market": "um",
+        "symbol": "XAUUSDT",
+        "day": "2026-10-28",
+        "source": "Binance official USD-M REST 1m klines",
+        "minute_rows": 1440,
+        "responses": [
+          {
+            "url": "https://fapi.binance.com/fapi/v1/klines?symbol=XAUUSDT&interval=1m&startTime=1793145600000&endTime=1793231999999&limit=1000",
+            "sha256": "f96c674cadc1cd8001c2973adc9d381d678d2cb44dd1bb3d18d6c985ab460761"
+          },
+          {
+            "url": "https://fapi.binance.com/fapi/v1/klines?symbol=XAUUSDT&interval=1m&startTime=1793205600000&endTime=1793231999999&limit=1000",
+            "sha256": "359be357640afef99f3025269a2527b874e4148c1b352ded921b1b3d986b3c72"
+          }
+        ]
+      }
+    },
+    {
+      "file": "um_SPYUSDT_1m_2026-10-28.csv.gz",
+      "market": "um",
+      "symbol": "SPYUSDT",
+      "day": "2026-10-28",
+      "rows": 1440,
+      "sha256": "a3050af5e93b771d53f024e93a797493410a73a18ea604dc7737e9b528d11bf6",
+      "csv_sha256": "0947ec9c37a9f2f4fccc6763c294f72e40cd6bda258b80f24ffe1389a5f84d49",
+      "bytes": 45367,
+      "provenance": {
+        "market": "um",
+        "symbol": "SPYUSDT",
+        "day": "2026-10-28",
+        "source": "Binance official USD-M REST 1m klines",
+        "minute_rows": 1440,
+        "responses": [
+          {
+            "url": "https://fapi.binance.com/fapi/v1/klines?symbol=SPYUSDT&interval=1m&startTime=1793145600000&endTime=1793231999999&limit=1000",
+            "sha256": "709bb26efc161259247d89a672a812deda2481ded1a9fe800526fdcf75e29a1c"
+          },
+          {
+            "url": "https://fapi.binance.com/fapi/v1/klines?symbol=SPYUSDT&interval=1m&startTime=1793205600000&endTime=1793231999999&limit=1000",
+            "sha256": "acc38a7627cf1535d2848aba7f570822fa5850665ec95c1d83a6095eb55b28af"
+          }
+        ]
+      }
+    }
+  ]
+}
+

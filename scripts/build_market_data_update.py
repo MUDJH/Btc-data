@@ -34,6 +34,7 @@ TAILS.mkdir(parents=True, exist_ok=True)
 UTC = timezone.utc
 USER_AGENT = "MUDJH-Btc-data-updater/1.0"
 ARCHIVE_FALLBACKS: list[dict] = []
+RECOVERY_DIR = Path(__file__).resolve().parents[1] / "data_recovery"
 
 SPOT_SYMBOLS = {
     "ADAUSDT": date(2026, 7, 10),
@@ -159,6 +160,39 @@ def read_rest_day(symbol: str, day: date) -> tuple[list[list[str]], list[dict]]:
     return rows, responses
 
 
+def load_approved_day(symbol: str, day: date):
+    index = RECOVERY_DIR / "approved_snapshots.json"
+    if not index.exists():
+        return None
+    entries = json.loads(index.read_text(encoding="utf-8"))["snapshots"]
+    entry = next((item for item in entries if item["market"] == "um" and item["symbol"] == symbol and item["day"] == day.isoformat()), None)
+    if entry is None:
+        return None
+    path = RECOVERY_DIR / entry["file"]
+    if path.resolve().parent != RECOVERY_DIR.resolve():
+        raise RuntimeError("invalid approved snapshot path")
+    compressed = path.read_bytes()
+    if hashlib.sha256(compressed).hexdigest() != entry["sha256"]:
+        raise RuntimeError("approved snapshot checksum mismatch")
+    payload = gzip.decompress(compressed)
+    if hashlib.sha256(payload).hexdigest() != entry["csv_sha256"]:
+        raise RuntimeError("approved snapshot CSV checksum mismatch")
+    rows = list(csv.reader(io.StringIO(payload.decode("utf-8"))))
+    start = int(datetime.combine(day, datetime.min.time(), UTC).timestamp() * 1000)
+    if len(rows) != 1440:
+        raise RuntimeError("approved snapshot must contain exactly 1440 minutes")
+    for minute, row in enumerate(rows):
+        if len(row) != 12 or norm_ms(row[0]) != start + minute * 60_000 or norm_ms(row[6]) != start + minute * 60_000 + 59_999:
+            raise RuntimeError("approved snapshot minute coverage or schema failed")
+        opening, high, low, close, volume = map(Decimal, row[1:6])
+        if not all(value.is_finite() for value in (opening, high, low, close, volume)) or min(opening, high, low, close) <= 0 or volume < 0 or high < max(opening, close) or low > min(opening, close):
+            raise RuntimeError("approved snapshot OHLCV validation failed")
+    receipt = dict(entry["provenance"])
+    receipt.update(source="Binance official USD-M REST saved snapshot", snapshot_file=entry["file"],
+                   snapshot_sha256=entry["sha256"], csv_sha256=entry["csv_sha256"])
+    return rows, receipt
+
+
 def read_archive(market: str, symbol: str, day: date) -> list[list[str]]:
     url = archive_url(market, symbol, day)
     try:
@@ -181,6 +215,11 @@ def read_archive(market: str, symbol: str, day: date) -> list[list[str]]:
         recovered = [row for row in monthly if start_ms <= norm_ms(row[0]) < start_ms + 86_400_000]
         if not recovered:
             if market == "um":
+                approved = load_approved_day(symbol, day)
+                if approved is not None:
+                    rows, receipt = approved
+                    ARCHIVE_FALLBACKS.append(receipt)
+                    return rows
                 try:
                     rest_rows, responses = read_rest_day(symbol, day)
                     ARCHIVE_FALLBACKS.append({"market": "um", "symbol": symbol,
