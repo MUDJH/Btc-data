@@ -1,18 +1,18 @@
 {
-  "generated_at_utc": "2026-11-07T07:39:52.145382+00:00",
-  "through_requested_utc_day": "2026-11-06",
+  "generated_at_utc": "2026-11-08T07:49:36.807511+00:00",
+  "through_requested_utc_day": "2026-11-07",
   "timestamp_unit": "milliseconds (Binance outputs); source-native seconds in Bitstamp rows",
   "files": [
     {
       "file": "ADAUSDT_1m_spot.csv.gz",
       "source": "Binance spot daily archives",
-      "rows": 172800,
+      "rows": 174240,
       "first_timestamp_ms": 1783641600000,
       "first_utc": "2026-07-10T00:00:00.000Z",
-      "last_timestamp_ms": 1794009540000,
-      "last_utc": "2026-11-06T23:59:00.000Z",
-      "sha256": "a8ad83a72bae5ebd89a47101c2f36dec31d5fd644591deaadd67d95f634d3bb5",
-      "bytes": 2037257,
+      "last_timestamp_ms": 1794095940000,
+      "last_utc": "2026-11-07T23:59:00.000Z",
+      "sha256": "32f077d79413931b49f3963ad72d3426e3ef9dc6ae382fc6c61281572d1ed371",
+      "bytes": 2051987,
       "recent_archives_not_yet_published": [],
       "continuity": {
         "non_1m_transitions": 0,
@@ -26,13 +26,13 @@
     {
       "file": "BNBUSDT_1m_spot.csv.gz",
       "source": "Binance spot daily archives",
-      "rows": 172800,
+      "rows": 174240,
       "first_timestamp_ms": 1783641600000,
       "first_utc": "2026-07-10T00:00:00.000Z",
-      "last_timestamp_ms": 1794009540000,
-      "last_utc": "2026-11-06T23:59:00.000Z",
-      "sha256": "23462f3f232933466739094459af1563cbe4f054b034ac6302006d7d5473100c",
-      "bytes": 2580997,
+      "last_timestamp_ms": 1794095940000,
+      "last_utc": "2026-11-07T23:59:00.000Z",
+      "sha256": "80bfe3f4f3bcf8f62033a476bd8fcee8884c12c0092b99eb833b9c70fc24cec6",
+      "bytes": 2600255,
       "recent_archives_not_yet_published": [],
       "continuity": {
         "non_1m_transitions": 0,
@@ -46,13 +46,13 @@
     {
       "file": "BTCUSDT_SPOT_1m.csv.gz",
       "source": "Binance spot daily archives",
-      "rows": 135360,
+      "rows": 136800,
       "first_timestamp_ms": 1785888000000,
       "first_utc": "2026-08-05T00:00:00.000Z",
-      "last_timestamp_ms": 1794009540000,
-      "last_utc": "2026-11-06T23:59:00.000Z",
-      "sha256": "6debd9b4dcd0a0b7e8a2ca214317c8b1bd18b70024c807c83d1e6f3401227084",
-      "bytes": 7416397,
+      "last_timestamp_ms": 1794095940000,
+      "last_utc": "2026-11-07T23:59:00.000Z",
+      "sha256": "e556e876abaccaefa8dda01a7c121b45808bea626fec60ed7e8c634a074cee92",
+      "bytes": 7489919,
       "recent_archives_not_yet_published": [],
       "continuity": {
         "non_1m_transitions": 0,
@@ -66,35 +66,33 @@
     {
       "file": "BTCUSDT_USDM_PERP_1m.csv.gz",
       "source": "Binance USD-M futures daily archives",
-      "rows": 132480,
+      "rows": 135360,
       "first_timestamp_ms": 1785974400000,
       "first_utc": "2026-08-06T00:00:00.000Z",
-      "last_timestamp_ms": 1793923140000,
-      "last_utc": "2026-11-05T23:59:00.000Z",
-      "sha256": "fac8afd0918d505224135fa7c15c1bd3fe4a9c0971e50b88069d2be73ae6a949",
-      "bytes": 6517149,
+      "last_timestamp_ms": 1794095940000,
+      "last_utc": "2026-11-07T23:59:00.000Z",
+      "sha256": "3e084c4034d6b88cc5b44df7f4aa5d0e203326dffb31ccbd81667d2af15616be",
+      "bytes": 6655055,
       "recent_archives_not_yet_published": [],
       "continuity": {
         "non_1m_transitions": 0,
         "missing_minutes": 0,
         "intervals": []
       },
-      "previous_manifest_generated_at_utc": "2026-11-06T08:23:06.415622+00:00",
-      "update_status": "error_preserved",
-      "error": "HTTPError: HTTP Error 451: ",
+      "update_status": "updated",
       "required_crypto": true,
-      "lag_days_against_requested_day": 1
+      "lag_days_against_requested_day": 0
     },
     {
       "file": "BTCUSD_BITSTAMP_1m_latest.csv.gz",
       "source": "ff137 Bitstamp BTCUSD latest overlap",
-      "rows": 963556,
+      "rows": 964965,
       "first_timestamp_ms": 1736208060000,
       "first_utc": "2025-01-07T00:01:00.000Z",
-      "last_timestamp_ms": 1794021360000,
-      "last_utc": "2026-11-07T03:16:00.000Z",
-      "sha256": "0236484d47b9b28604c3c4f1aa0ce1bd24c4f663ef92ddf5ed4ea9164abbcbce",
-      "bytes": 16190105,
+      "last_timestamp_ms": 1794105900000,
+      "last_utc": "2026-11-08T02:45:00.000Z",
+      "sha256": "1c6634e17028c0d6124d1df96d62f92e5ad32849698bccaa2ffdef2826c2b623",
+      "bytes": 16211817,
       "recent_archives_not_yet_published": [],
       "continuity": {
         "non_1m_transitions": 0,
@@ -105,7 +103,7 @@
         {
           "file": "BTCUSD_BITSTAMP_1m_latest.parts/part_000.bin",
           "bytes": 700000,
-          "sha256": "15d4d6a8c008ab6b5074fdecd026b65dcc749d4c31bb91127cbb06654a2b10b2"
+          "sha256": "b8bcb9a55b1e100b1d4ab7c0831f9b9c6642b196e11d7aee6b51786e2a7917c2"
         },
         {
           "file": "BTCUSD_BITSTAMP_1m_latest.parts/part_001.bin",
@@ -219,8 +217,8 @@
         },
         {
           "file": "BTCUSD_BITSTAMP_1m_latest.parts/part_023.bin",
-          "bytes": 90105,
-          "sha256": "1946fd7cb542f270f001169b9872024933a7b583cfe356e36c39c2c3a8fb861d"
+          "bytes": 111817,
+          "sha256": "f57b8fc16cd540d9fc0dc7afde5cffa3c1e807364624c29d396dc3531a6b13ae"
         }
       ],
       "update_status": "updated",
@@ -230,13 +228,13 @@
     {
       "file": "DOGEUSDT_1m_spot.csv.gz",
       "source": "Binance spot daily archives",
-      "rows": 172800,
+      "rows": 174240,
       "first_timestamp_ms": 1783641600000,
       "first_utc": "2026-07-10T00:00:00.000Z",
-      "last_timestamp_ms": 1794009540000,
-      "last_utc": "2026-11-06T23:59:00.000Z",
-      "sha256": "a52624afc8552978c6d0b3344a381cc48f62df90814fcad349fa605edea277ba",
-      "bytes": 2316042,
+      "last_timestamp_ms": 1794095940000,
+      "last_utc": "2026-11-07T23:59:00.000Z",
+      "sha256": "d5f8bcddab298f57c068711786031cef7c60265dca147e792a238d0c896f2809",
+      "bytes": 2333175,
       "recent_archives_not_yet_published": [],
       "continuity": {
         "non_1m_transitions": 0,
@@ -250,13 +248,13 @@
     {
       "file": "ETHUSDT_1m_spot.csv.gz",
       "source": "Binance spot daily archives",
-      "rows": 172800,
+      "rows": 174240,
       "first_timestamp_ms": 1783641600000,
       "first_utc": "2026-07-10T00:00:00.000Z",
-      "last_timestamp_ms": 1794009540000,
-      "last_utc": "2026-11-06T23:59:00.000Z",
-      "sha256": "e4e393650c7a97a49c1db1b7a8afd19a91d1e11420c51f43430ffbf4a2e49400",
-      "bytes": 2955244,
+      "last_timestamp_ms": 1794095940000,
+      "last_utc": "2026-11-07T23:59:00.000Z",
+      "sha256": "d8eb160b7cc2cbddeb7d1cb6f569454c5b027c945202b90925de21f79fab5f8c",
+      "bytes": 2977394,
       "recent_archives_not_yet_published": [],
       "continuity": {
         "non_1m_transitions": 0,
@@ -270,13 +268,13 @@
     {
       "file": "LTCUSDT_1m_spot.csv.gz",
       "source": "Binance spot daily archives",
-      "rows": 172800,
+      "rows": 174240,
       "first_timestamp_ms": 1783641600000,
       "first_utc": "2026-07-10T00:00:00.000Z",
-      "last_timestamp_ms": 1794009540000,
-      "last_utc": "2026-11-06T23:59:00.000Z",
-      "sha256": "ab1ed2108e171e5a3eea8f982b1e33d2786d74ae6ef2cd638e8b19a09f441b4f",
-      "bytes": 2245597,
+      "last_timestamp_ms": 1794095940000,
+      "last_utc": "2026-11-07T23:59:00.000Z",
+      "sha256": "c33161eeaad867e01e7d5bae63c3522e8e902fa20ceca66f4e985c48d3822819",
+      "bytes": 2262805,
       "recent_archives_not_yet_published": [],
       "continuity": {
         "non_1m_transitions": 0,
@@ -290,13 +288,13 @@
     {
       "file": "SOLUSDT_1m_spot.csv.gz",
       "source": "Binance spot daily archives",
-      "rows": 172800,
+      "rows": 174240,
       "first_timestamp_ms": 1783641600000,
       "first_utc": "2026-07-10T00:00:00.000Z",
-      "last_timestamp_ms": 1794009540000,
-      "last_utc": "2026-11-06T23:59:00.000Z",
-      "sha256": "e8c0fd94e9ade61ae8b767ba6b0a37cf74ceac51910d8a44b6aa980c7379be77",
-      "bytes": 2479929,
+      "last_timestamp_ms": 1794095940000,
+      "last_utc": "2026-11-07T23:59:00.000Z",
+      "sha256": "94d5779ef72de97dcc1f73af04a31fb5251df645d80eb44b1c6ca0a7facfe622",
+      "bytes": 2498818,
       "recent_archives_not_yet_published": [],
       "continuity": {
         "non_1m_transitions": 0,
@@ -323,11 +321,11 @@
         "missing_minutes": 0,
         "intervals": []
       },
-      "previous_manifest_generated_at_utc": "2026-11-06T08:23:06.415622+00:00",
+      "previous_manifest_generated_at_utc": "2026-11-07T07:39:52.145382+00:00",
       "update_status": "error_preserved",
       "error": "HTTPError: HTTP Error 451: ",
       "required_crypto": false,
-      "lag_days_against_requested_day": 1
+      "lag_days_against_requested_day": 2
     },
     {
       "file": "XAUUSDT_BINANCE_USDM_PERP_1m.csv.gz",
@@ -345,22 +343,22 @@
         "missing_minutes": 0,
         "intervals": []
       },
-      "previous_manifest_generated_at_utc": "2026-11-06T08:23:06.415622+00:00",
+      "previous_manifest_generated_at_utc": "2026-11-07T07:39:52.145382+00:00",
       "update_status": "error_preserved",
       "error": "HTTPError: HTTP Error 451: ",
       "required_crypto": false,
-      "lag_days_against_requested_day": 1
+      "lag_days_against_requested_day": 2
     },
     {
       "file": "XRPUSDT_1m_spot.csv.gz",
       "source": "Binance spot daily archives",
-      "rows": 172800,
+      "rows": 174240,
       "first_timestamp_ms": 1783641600000,
       "first_utc": "2026-07-10T00:00:00.000Z",
-      "last_timestamp_ms": 1794009540000,
-      "last_utc": "2026-11-06T23:59:00.000Z",
-      "sha256": "25b9f3afd2f71a19c1363bf3b462912ea82a466451bbc3e718732e735862833b",
-      "bytes": 2386200,
+      "last_timestamp_ms": 1794095940000,
+      "last_utc": "2026-11-07T23:59:00.000Z",
+      "sha256": "c1f7ecbc961a10dbefc4d29db660d8a605ebe68030f7a4920c323342bcb9469c",
+      "bytes": 2405530,
       "recent_archives_not_yet_published": [],
       "continuity": {
         "non_1m_transitions": 0,
@@ -374,39 +372,28 @@
   ],
   "errors": [
     {
-      "file": "BTCUSDT_USDM_PERP_1m.csv.gz",
-      "required_crypto": true,
-      "error": "HTTPError: HTTP Error 451: ",
-      "url": "https://fapi.binance.com/fapi/v1/klines?symbol=BTCUSDT&interval=1m&startTime=1793923200000&endTime=1794009599999&limit=1000"
-    },
-    {
       "file": "XAUUSDT_BINANCE_USDM_PERP_1m.csv.gz",
       "required_crypto": false,
       "error": "HTTPError: HTTP Error 451: ",
-      "url": "https://fapi.binance.com/fapi/v1/klines?symbol=XAUUSDT&interval=1m&startTime=1793923200000&endTime=1794009599999&limit=1000"
+      "url": "https://fapi.binance.com/fapi/v1/klines?symbol=XAUUSDT&interval=1m&startTime=1794009600000&endTime=1794095999999&limit=1000"
     },
     {
       "file": "SPYUSDT_BINANCE_USDM_PERP_1m.csv.gz",
       "required_crypto": false,
       "error": "HTTPError: HTTP Error 451: ",
-      "url": "https://fapi.binance.com/fapi/v1/klines?symbol=SPYUSDT&interval=1m&startTime=1793923200000&endTime=1794009599999&limit=1000"
+      "url": "https://fapi.binance.com/fapi/v1/klines?symbol=SPYUSDT&interval=1m&startTime=1794009600000&endTime=1794095999999&limit=1000"
     }
   ],
   "warnings": [
     {
-      "file": "BTCUSDT_USDM_PERP_1m.csv.gz",
-      "kind": "source_lag",
-      "lag_days": 1
-    },
-    {
       "file": "XAUUSDT_BINANCE_USDM_PERP_1m.csv.gz",
       "kind": "source_lag",
-      "lag_days": 1
+      "lag_days": 2
     },
     {
       "file": "SPYUSDT_BINANCE_USDM_PERP_1m.csv.gz",
       "kind": "source_lag",
-      "lag_days": 1
+      "lag_days": 2
     }
   ],
   "archive_fallbacks": [
@@ -472,5 +459,5 @@
     }
   ],
   "health": "degraded",
-  "required_crypto_failed": true
+  "required_crypto_failed": false
 }
